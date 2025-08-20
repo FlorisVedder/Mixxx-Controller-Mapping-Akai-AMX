@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MixxxControllerPreset schemaVersion="1" mixxxVersion="2.6+">
+    <info>
+        <name>Akai AMX (FV)</name>
+        <author>Floris Vedder</author>
+        <description>AMX mapping based on ComponentsJS with midiIn and midiOut mapping. Without control configuration in the xml.</description>
+    </info>
+    <controller id="AMXFV">
+        <scriptfiles>
+            <file filename="midi-components-0-FV.js" />
+            <file filename="Akai-AMX-FV-scripts.js" functionprefix="AMXFV" />
+        </scriptfiles>
+    </controller>
+</MixxxControllerPreset>
