@@ -1,0 +1,12 @@
+{
+  "name": "mixxx-akai-amx-fv",
+  "version": "0.0.0",
+  "description": "Controller mapping of the Akai AMX controller for Mixxx",
+  "license": "GPL-3.0-or-later",
+  "author": "Floris Vedder",
+  "main": "Akai-AMX-FV-scripts.js",
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "eslint": "^9.29.0"
+  }
+}
