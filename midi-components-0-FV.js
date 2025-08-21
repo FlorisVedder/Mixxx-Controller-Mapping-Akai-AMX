@@ -27,13 +27,57 @@
  */
 
 (function(global) {
+    /**
+     * @typedef {[number, number] | [[number, number], [number, number]]} MidiBytesVariations
+     *
+     * @typedef {object} ComponentOptions
+     * @property {MidiBytesVariations} [midi] MIDI events
+     * @property {MidiBytesVariations} [midiIn] MIDI events
+     * @property {MidiBytesVariations} [midiOut] MIDI events
+     */
+
     const NO_TIMER = 0;
+
+    /**
+     * @param {ComponentOptions | [number, number]} options Component configuration
+     * @class
+     */
     const Component = function(options) {
-        if (Array.isArray(options) && typeof options[0] === "number") {
-            this.midi = options;
-        } else {
-            Object.assign(this, options);
+        if (typeof options === "undefined") {
+            print('component options undefined');
+            // print('this: ' + this.constructor.);
+            return;
         }
+
+        this.normalizeMidi = (midiBytesVar) => {
+            if (!Array.isArray(midiBytesVar)) {
+                return [];
+            }
+
+            const [first, second] = midiBytesVar;
+
+            if (Array.isArray(first) && Array.isArray(second)) { // long form
+                print('is already array ');
+                return midiBytesVar;
+            } else {
+                print('converting to array: ' + midiBytesVar);
+                return [midiBytesVar];
+            }
+        };
+
+        if (Array.isArray(options)) {
+            const [midiStatus, midiNo] = options;
+            options = {midiOut: [midiStatus, midiNo]};
+        } else if (Array.isArray(options.midi)) {
+            console.warn("Passing `midi` configuration is deprecated in favor `midiOut`");
+            options.midiOut = options.midi;
+            delete options.midi;
+        }
+
+        options.midiIn = this.normalizeMidi(options.midiIn);
+        options.midiOut = this.normalizeMidi(options.midiOut);
+
+        Object.assign(this, options);
 
         if (typeof this.unshift === "function") {
             this.unshift();
@@ -46,6 +90,9 @@
             this.inKey = options.key;
             this.outKey = options.key;
         }
+
+        /** @type {MidiInputHandlerController[]} */
+        this.inputHandlers = [];
 
         if (this.outConnect && this.group !== undefined && this.outKey !== undefined) {
             this.connect();
@@ -77,6 +124,23 @@
         outTrigger: true,
 
         max: 127, // for MIDI. When adapting for HID this may change.
+
+        /**
+         * @deprecated
+         * @returns {[number, number]}
+         */
+        get midi() {
+            console.warn("`midi` property is deprecated, please use `midiOut` instead");
+            return this.midiOut.length > 0 ? this.midiOut[0] : undefined;
+        },
+        /**
+         * @deprecated
+         * @param {MidiBytesVariations} value New midi value
+         */
+        set midi(value) {
+            console.warn("`midi` property is deprecated, please use `midiOut` instead");
+            this.midiOut = this.normalizeMidi(value);
+        },
 
         // common functions
         // In most cases, you should not overwrite these.
@@ -112,29 +176,38 @@
             this.outSetValue(!this.outGetValue());
         },
 
-        connect: function() {
+        connectMidiOut() {
             /**
-            Override this method with a custom one to connect multiple Mixxx COs for a single Component.
-            Add the connection objects to the this.connections array so they all get disconnected just
-            by calling this.disconnect(). This can be helpful for multicolor LEDs that show a
-            different color depending on the state of different Mixxx COs. Refer to
-            SamplerButton.connect() and SamplerButton.output() for an example.
+             Override this method with a custom one to connect multiple Mixxx COs for a single Component.
+             Add the connection objects to the this.connections array so they all get disconnected just
+             by calling this.disconnect(). This can be helpful for multicolor LEDs that show a
+             different color depending on the state of different Mixxx COs. Refer to
+             SamplerButton.connect() and SamplerButton.output() for an example.
              */
             if (undefined !== this.group &&
                 undefined !== this.outKey &&
                 undefined !== this.output &&
                 typeof this.output === "function") {
-                print('connect midi out');
-                print('group:' + this.group);
-                print('outKey:' + this.outKey);
                 this.connections[0] = engine.makeConnection(this.group, this.outKey, this.output.bind(this));
             }
+        },
+        connectMidiIn() {
+            for (const [midiStatus, midino] of this.midiIn) {
+                this.inputHandlers.push(midi.makeInputHandler(midiStatus, midino, this.input.bind(this)));
+            }
+        },
+        connect: function() {
+            this.connectMidiIn();
+            this.connectMidiOut();
         },
         disconnect: function() {
             if (this.connections[0] !== undefined) {
                 this.connections.forEach(function(conn) {
                     conn.disconnect();
                 });
+            }
+            for (const inputHandler of this.inputHandlers) {
+                inputHandler.disconnect();
             }
         },
         trigger: function() {
@@ -149,18 +222,18 @@
         shiftChannel: false,
         shiftControl: false,
         send: function(value) {
-            if (this.midi === undefined || this.midi[0] === undefined || this.midi[1] === undefined) {
+            if (this.midiOut.length <= 0) {
                 return;
             }
-            print('midiSatus: ' + this.midi[0]); // should be 144 (0x90
-            print('midino:' + this.midi[1]); // should be 10 or 11 : 0x0A or 0x0B
-            print('value: ' + value);
-            midi.sendShortMsg(this.midi[0], this.midi[1], value);
+            for (const [midiStatus, midino] of this.midiOut) {
+                midi.sendShortMsg(midiStatus, midino, value);
+            }
+
             if (this.sendShifted) {
                 if (this.shiftChannel) {
-                    midi.sendShortMsg(this.midi[0] + this.shiftOffset, this.midi[1], value);
+                    midi.sendShortMsg(this.midiOut[0][0] + this.shiftOffset, this.midiOut[0][1], value);
                 } else if (this.shiftControl) {
-                    midi.sendShortMsg(this.midi[0], this.midi[1] + this.shiftOffset, value);
+                    midi.sendShortMsg(this.midiOut[0][0], this.midiOut[0][1] + this.shiftOffset, value);
                 }
             }
         },
@@ -189,14 +262,7 @@
         isPress: function(channel, control, value, _status) {
             return value > 0;
         },
-        // input: function(channel, control, value, status, _group) {
-        input: function(channel, control, value, status) {
-            print('channel: ' + channel);
-            print('control: ' + control);
-            print('value: ' + value);
-            print('status: ' + status);
-            // print('_group: ' + _group);
-            // print('group type: ' + typeof _group );
+        input: function(channel, control, value, status, _group) {
             if (this.type === undefined || this.type === this.types.push) {
                 this.inSetValue(this.isPress(channel, control, value, status));
             } else if (this.type === this.types.toggle) {
@@ -474,6 +540,7 @@
     Pot.prototype = new Component({
         softTakeover: true,
         input: function(channel, control, value, _status, _group) {
+            print('infader');
             if (this.MSB !== undefined) {
                 value = (this.MSB << 7) + value;
             }
@@ -512,7 +579,18 @@
                 this._firstLSB = value;
             }
         },
+        connectMidiIn() {
+            if (this.midiIn.length >= 1) {
+                const [midiStatus, midino] = this.midiIn[0];
+                this.inputHandlers.push(midi.makeInputHandler(midiStatus, midino, this.inputMSB.bind(this)));
+            }
+            if (this.midiIn.length === 2) {
+                const [midiStatus, midino] = this.midiIn[1];
+                this.inputHandlers.push(midi.makeInputHandler(midiStatus, midino, this.inputLSB.bind(this)));
+            }
+        },
         connect: function() {
+            this.connectMidiIn();
             if (this.firstValueReceived && !this.relative && this.softTakeover) {
                 engine.softTakeover(this.group, this.inKey, true);
             }
@@ -526,8 +604,8 @@
     });
 
     /**
-    The generic Component code provides everything to implement an Encoder. This Encoder Component
-    exists so instanceof can be used to separate Encoders from other Components.
+     The generic Component code provides everything to implement an Encoder. This Encoder Component
+     exists so instanceof can be used to separate Encoders from other Components.
      *
      * @param options
      */
@@ -703,13 +781,14 @@
     };
 
     const Deck = function(deckNumbers) {
+        print('deckNumbers: ' + deckNumbers);
         if (deckNumbers !== undefined && Array.isArray(deckNumbers)) {
             // These must be unique to each instance,
             // so they cannot be in the prototype.
             this.deckNumbers = deckNumbers;
         } else if (deckNumbers !== undefined && typeof deckNumbers === "number" &&
-                Math.floor(deckNumbers) === deckNumbers &&
-                isFinite(deckNumbers)) {
+            Math.floor(deckNumbers) === deckNumbers &&
+            isFinite(deckNumbers)) {
             this.deckNumbers = [deckNumbers];
         } else {
             console.warn("ERROR! new Deck() called without specifying any deck numbers");
@@ -721,13 +800,14 @@
         setCurrentDeck: function(newGroup) {
             this.currentDeck = newGroup;
             this.reconnectComponents(function(component) {
-                if (component.group === undefined
-                      || component.group.search(script.channelRegEx) !== -1) {
+                if (component.group === undefined) {
                     component.group = newGroup;
-                } else if (component.group.search(script.eqRegEx) !== -1) {
-                    component.group = "[EqualizerRack1_" + newGroup + "_Effect1]";
-                } else if (component.group.search(script.quickEffectRegEx) !== -1) {
-                    component.group = "[QuickEffectRack1_" + newGroup + "]";
+                } else {
+                    // Match the channel anywhere it might appear in the group
+                    // whether it includes the closing brace or is part of
+                    // another group name such as "Channel1_Stem1".
+                    const anyChannelRegEx = /\[Channel\d+([\]_])/;
+                    component.group = component.group.replace(anyChannelRegEx, `${newGroup.slice(0, -1)}$1`);
                 }
                 // Do not alter the Component's group if it does not match any of those RegExs.
 
@@ -853,9 +933,20 @@
         },
         input: function(_channel, control, _value, status, _group) {
             throw "Called wrong input handler for " + status + ": " + control + ".\n" +
-                "Please bind jogwheel-related messages to inputWheel and inputTouch!\n";
+            "Please bind jogwheel-related messages to inputWheel and inputTouch!\n";
         },
         reset() {},
+
+        connectMidiIn() {
+            if (this.midiIn.length >= 1) {
+                const [midiStatus, midino] = this.midiIn[0];
+                this.inputHandlers.push(midi.makeInputHandler(midiStatus, midino, this.inputTouch.bind(this)));
+            }
+            if (this.midiIn.length === 2) {
+                const [midiStatus, midino] = this.midiIn[1];
+                this.inputHandlers.push(midi.makeInputHandler(midiStatus, midino, this.inputWheel.bind(this)));
+            }
+        },
     });
 
     const EffectUnit = function(unitNumbers, allowFocusWhenParametersHidden, colors) {
@@ -922,7 +1013,7 @@
             if (this.hasInitialized === true) {
                 for (let n = 1; n <= 3; n++) {
                     const effect = "[EffectRack1_EffectUnit" + this.currentUnitNumber +
-                                "_Effect" + n + "]";
+                        "_Effect" + n + "]";
                     engine.softTakeover(effect, "meta", true);
                     engine.softTakeover(effect, "parameter1", true);
                     engine.softTakeover(effect, "parameter2", true);
@@ -940,8 +1031,8 @@
                     const effectMatch = component.group.match(script.individualEffectRegEx);
                     if (effectMatch !== null) {
                         component.group = "[EffectRack1_EffectUnit" +
-                                          eu.currentUnitNumber +
-                                          "_Effect" + effectMatch[2] + "]";
+                            eu.currentUnitNumber +
+                            "_Effect" + effectMatch[2] + "]";
                     }
                 }
             });
@@ -961,8 +1052,8 @@
         if (unitNumbers !== undefined && Array.isArray(unitNumbers)) {
             this.unitNumbers = unitNumbers;
         } else if (unitNumbers !== undefined && typeof unitNumbers === "number" &&
-                  Math.floor(unitNumbers) === unitNumbers &&
-                  isFinite(unitNumbers)) {
+            Math.floor(unitNumbers) === unitNumbers &&
+            isFinite(unitNumbers)) {
             this.unitNumbers = [unitNumbers];
         } else {
             console.warn("ERROR! new EffectUnit() called without specifying any unit numbers!");
@@ -1020,7 +1111,7 @@
 
                     if (this.previousValueReceived === undefined) {
                         const effect = "[EffectRack1_EffectUnit" + eu.currentUnitNumber +
-                                    "_Effect" + this.number + "]";
+                            "_Effect" + this.number + "]";
                         engine.softTakeover(effect, "meta", true);
                         engine.softTakeover(effect, "parameter1", true);
                         engine.softTakeover(effect, "parameter2", true);
@@ -1054,8 +1145,8 @@
                         // shift was pressed before the first MIDI value was received.
                         || this.valueAtLastEffectSwitch === undefined) {
                         const effectGroup = "[EffectRack1_EffectUnit" +
-                                           eu.currentUnitNumber + "_Effect" +
-                                           this.number + "]";
+                            eu.currentUnitNumber + "_Effect" +
+                            this.number + "]";
                         engine.setValue(effectGroup, "effect_selector", change);
                         this.valueAtLastEffectSwitch = value;
                     }
@@ -1078,12 +1169,12 @@
             onFocusChange: function(value, _group, _control) {
                 if (value === 0) {
                     this.group = "[EffectRack1_EffectUnit" +
-                                  eu.currentUnitNumber + "_Effect" +
-                                  this.number + "]";
+                        eu.currentUnitNumber + "_Effect" +
+                        this.number + "]";
                     this.inKey = "meta";
                 } else {
                     this.group = "[EffectRack1_EffectUnit" + eu.currentUnitNumber +
-                                  "_Effect" + value + "]";
+                        "_Effect" + value + "]";
                     this.inKey = "parameter" + this.number;
                 }
                 engine.softTakeoverIgnoreNextValue(this.group, this.inKey);
@@ -1093,7 +1184,7 @@
         this.EffectEnableButton = function(number) {
             this.number = number;
             this.group = "[EffectRack1_EffectUnit" + eu.currentUnitNumber +
-                          "_Effect" + this.number + "]";
+                "_Effect" + this.number + "]";
             Button.call(this);
         };
         this.EffectEnableButton.prototype = new Button({
@@ -1105,8 +1196,8 @@
                         this.color = colors.unfocused;
                     }
                     this.group = "[EffectRack1_EffectUnit" +
-                                  eu.currentUnitNumber + "_Effect" +
-                                  this.number + "]";
+                        eu.currentUnitNumber + "_Effect" +
+                        this.number + "]";
                     this.inKey = "enabled";
                     this.outKey = "enabled";
                 } else {
@@ -1114,7 +1205,7 @@
                         this.color = colors.focused;
                     }
                     this.group = "[EffectRack1_EffectUnit" + eu.currentUnitNumber +
-                                 "_Effect" + value + "]";
+                        "_Effect" + value + "]";
                     this.inKey = "button_parameter" + this.number;
                     this.outKey = "button_parameter" + this.number;
                 }
@@ -1143,8 +1234,8 @@
                 };
                 this.shift = function() {
                     this.group = "[EffectRack1_EffectUnit" +
-                                  eu.currentUnitNumber + "_Effect" +
-                                  this.number + "]";
+                        eu.currentUnitNumber + "_Effect" +
+                        this.number + "]";
                     this.inKey = "enabled";
                 };
                 if (this.isShifted) {
@@ -1278,7 +1369,7 @@
             this.effectFocusButton.trigger();
 
             this.enableOnChannelButtons.forEachComponent(function(button) {
-                if (button.midi !== undefined) {
+                if (button.midiOut !== undefined) {
                     button.disconnect();
                     button.connect();
                     button.trigger();
