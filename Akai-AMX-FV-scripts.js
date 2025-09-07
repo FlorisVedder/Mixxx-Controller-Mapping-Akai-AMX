@@ -42,7 +42,12 @@ AMXFV.mapping.prototype = {
         'eqBassMSB': [0x28, 0x2C],
         'lineFaderLSB': [0x07, 0x0B],
         'lineFaderMSB': [0x27, 0x2B],
-        'crossfader': 0x21,
+        'cueMix': 0x37,
+        'cueGain': 0x33,
+        'master': 0x32,
+        'xfadeREV': 0x3A,
+        'crossFaderLSB': 0x01,
+        'crossFaderMSB': 0x21,
     },
 
     getControl: function(controlName, layoutIndex) {
@@ -115,6 +120,7 @@ AMXFV.init = function () {
     ];
 
     this.global = new AMXFV.Global(new AMXFV.mapping(), this.deckMappingList);
+    this.master = new AMXFV.Master(new AMXFV.mapping());
 
     this.mixerLineContainer = new components.ComponentContainer();
     this.deckBasicsContainer = new components.ComponentContainer();
@@ -185,7 +191,42 @@ AMXFV.Global = function(mapping, deckMappingList) {
 };
 AMXFV.Global.prototype = new components.ComponentContainer();
 
+/**
+ * Constructor for the master group controls in mixxx.
+ *
+ */
+AMXFV.Master = function(mapping) {
 
+    this.cueMix = new components.Pot({
+        midiIn: [[CONTROL_NUMBER, mapping.getControl('cueMix')], [CONTROL_NUMBER, mapping.getControl('cueMix')]],
+        inKey: `headMix`
+    });
+
+    this.cueGain = new components.Pot({
+        midiIn: [[CONTROL_NUMBER, mapping.getControl('cueGain')], [CONTROL_NUMBER, mapping.getControl('cueGain')]],
+        inKey: `headGain`
+    });
+
+    this.masterGain = new components.Pot({
+        midiIn: [[CONTROL_NUMBER, mapping.getControl('master')], [CONTROL_NUMBER, mapping.getControl('master')]],
+        inKey: `gain`
+    });
+
+    // @TODO: support xfade rev (crossfader reverse or hamster style) button from the controller.
+
+    this.crossFader = new components.Pot({
+        midiIn: [[CONTROL_NUMBER, mapping.getControl('crossFaderLSB')], [CONTROL_NUMBER, mapping.getControl('crossFaderMSB')]],
+        inKey: 'crossfader'
+    });
+
+    this.reconnectComponents(function (component) {
+        if (component.group === undefined) {
+            component.group = "[Master]";
+        }
+    });
+
+};
+AMXFV.Master.prototype = new components.ComponentContainer();
 
 ////////////////////////////////////////////////////////////////////////
 //*                                                                  *//
@@ -227,6 +268,7 @@ AMXFV.MixerLine.prototype = new components.Deck([]);
  *   Number of the equalizer rack.
  */
 AMXFV.EqualizerRack = function(channelMapping, rackNumber) {
+    // @TODO provide support for touch control
 
     this.filterHigh = new components.Pot({
         midiIn: [[CONTROL_NUMBER, channelMapping.getControl('eqTrebleLSB')], [CONTROL_NUMBER, channelMapping.getControl('eqTrebleMSB')]],
