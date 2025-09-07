@@ -57,10 +57,8 @@
             const [first, second] = midiBytesVar;
 
             if (Array.isArray(first) && Array.isArray(second)) { // long form
-                print('is already array ');
                 return midiBytesVar;
             } else {
-                print('converting to array: ' + midiBytesVar);
                 return [midiBytesVar];
             }
         };
@@ -781,7 +779,6 @@
     };
 
     const Deck = function(deckNumbers) {
-        print('deckNumbers: ' + deckNumbers);
         if (deckNumbers !== undefined && Array.isArray(deckNumbers)) {
             // These must be unique to each instance,
             // so they cannot be in the prototype.
