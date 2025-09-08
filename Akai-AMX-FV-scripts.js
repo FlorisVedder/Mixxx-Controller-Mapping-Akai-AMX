@@ -34,6 +34,8 @@ AMXFV.mapping.prototype = {
         'sync': [0x06, 0x07],
         'cue': [0x08, 0x09],
         'play': [0x0A, 0x0B],
+        'pfl': [0x0C, 0x0D],
+        'gain': [0x3C, 0x3D],
         'eqTrebleLSB': [0x0A, 0x0E],
         'eqTrebleMSB': [0x2A, 0x2E],
         'eqMidLSB': [0x09, 0x0D],
@@ -193,7 +195,6 @@ AMXFV.Global.prototype = new components.ComponentContainer();
 
 /**
  * Constructor for the master group controls in mixxx.
- *
  */
 AMXFV.Master = function(mapping) {
 
@@ -306,14 +307,51 @@ AMXFV.EqualizerRack.prototype = new components.ComponentContainer();
 AMXFV.DeckBasics = function (channelMapping) {
     components.Deck.call(this, channelMapping.getGroupNumber());
 
+    // This is in DeckBasics instead of MixerLine because it doubles in shift as pitch,
+    // and it can be swapped out for other functionality in a Deck specific layer.
+    this.gain = new components.Encoder({
+        midiIn: [CONTROL_NUMBER, channelMapping.getControl('gain')],
+        parameterStep: .02,
+        input: function (channel, control, value, status, group) {
+            if (value === 1) {
+                this.inSetParameter(this.inGetParameter() + this.parameterStep);
+            } else if (value === 127) {
+                this.inSetParameter(this.inGetParameter() - this.parameterStep);
+            }
+        },
+        unshift: function() {
+            this.inKey = "pregain";
+            this.parameterStep = 0.025
+        },
+        shift: function() {
+            this.inKey = "rate";
+            this.parameterStep = - 0.005
+        },
+    });
+
     this.syncButton = new components.SyncButton({
         midiIn: [NOTE_ON, channelMapping.getControl('sync')],
         midiOut: [NOTE_ON, channelMapping.getControl('sync')],
     });
 
+    this.cueButton = new components.CueButton({
+        midiIn: [[NOTE_ON, channelMapping.getControl('cue')],[NOTE_OFF, channelMapping.getControl('cue')]],
+        midiOut: [NOTE_ON, channelMapping.getControl('cue')],
+    });
+
     this.playButton = new components.PlayButton({
         midiIn: [NOTE_ON, channelMapping.getControl('play')],
         midiOut: [NOTE_ON, channelMapping.getControl('play')]
+    });
+
+    this.pflOn = new components.Button({
+        midiIn: [NOTE_ON, channelMapping.getControl('pfl')],
+        inKey: 'pfl',
+    });
+
+    this.pflOff = new components.Button({
+        midiIn: [NOTE_OFF, channelMapping.getControl('pfl')],
+        inKey: 'pfl',
     });
 
     // Connect all components of this deck to the same control group.
