@@ -42,6 +42,8 @@ AMXFV.mapping.prototype = {
         'eqMidMSB': [0x29, 0x2D],
         'eqBassLSB': [0x08, 0x0C],
         'eqBassMSB': [0x28, 0x2C],
+        'filterLSB': [0x0F, 0x10],
+        'filterMSB': [0x2F, 0x30],
         'lineFaderLSB': [0x07, 0x0B],
         'lineFaderMSB': [0x27, 0x2B],
         'cueMix': 0x37,
@@ -245,6 +247,13 @@ AMXFV.MixerLine = function (channelMapping) {
     components.Deck.call(this, channelMapping.getGroupNumber());
 
     this.equalizerRack = new AMXFV.EqualizerRack(channelMapping, 1);
+
+    this.filter = new components.Pot({
+        midiIn: [[CONTROL_NUMBER, channelMapping.getControl('filterLSB')], [CONTROL_NUMBER, channelMapping.getControl('filterMSB')]],
+        inKey: `super1`,
+        group: `[QuickEffectRack1_[Channel${channelMapping.getGroupNumber()}]]`
+        // group: "[QuickEffectRack1_[Channel1]]",
+    });
 
     this.lineFader = new components.Pot({
         midiIn: [[CONTROL_NUMBER, channelMapping.getControl('lineFaderLSB')], [CONTROL_NUMBER, channelMapping.getControl('lineFaderMSB')]],
