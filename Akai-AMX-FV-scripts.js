@@ -133,35 +133,35 @@ AMXFV.init = function () {
     leftDeckMapping = this.deckMappingList[0];
     rightDeckMapping = this.deckMappingList[1];
 
-    this.global = new AMXFV.Global(this.globalMapping, this.deckMappingList);
+    // Create containers with general mapping.
+    this.global = new AMXFV.Global(this.globalMapping);
     this.library = new AMXFV.Library(this.globalMapping);
     this.master = new AMXFV.Master(this.globalMapping);
 
+    // Create containers with per deck mapping.
     this.mixerLineContainer = new components.ComponentContainer();
     this.deckBasicsContainer = new components.ComponentContainer();
-
-    // Build the components group that are present for each channel at the same time.
+    this.deckExtrasContainer = new components.ComponentContainer();
     this.deckMappingList.forEach((function(deckMapping){
-        this.mixerLineContainer[deckMapping.getIndex()] = new AMXFV.MixerLine(deckMapping);
-        this.deckBasicsContainer[deckMapping.getIndex()] = new AMXFV.DeckBasics(deckMapping);
+        let index = deckMapping.getIndex();
+        this.mixerLineContainer[index] = new AMXFV.MixerLine(deckMapping);
+        this.deckBasicsContainer[index] = new AMXFV.DeckBasics(deckMapping);
+        this.deckExtrasContainer[index] = new AMXFV.DeckExtras(deckMapping);
     }).bind(this));
 
-    this.deckExtrasContainer = new components.ComponentContainer();
-
-    // Build layers and add them to the layer button's that are created in the global component container.
+    // Add the layers to the given layer button.
+    // On the controller the buttons with the text 'search' above and the number on the button.
     this.deckMappingList.forEach((function(deckMapping){
         let deckNumber = deckMapping.getGroupNumber();
-        // Add the default components to the layer button.
-        this.global[`layerButtonDeck${deckNumber}`].registerDefaultContainer(this.deckBasicsContainer);
-        this.global[`layerButtonDeck${deckNumber}`].registerDefaultContainer(this.library);
-
-        // Build the parts that can be enabled as layer and add them to the layer button.
-        this.deckExtrasContainer[`deckExtrasLayer${deckNumber}`] = new AMXFV.DeckExtras(deckMapping);
-        this.global[`layerButtonDeck${deckNumber}`].registerLayerContainer(this.deckExtrasContainer[`deckExtrasLayer${deckNumber}`]);
+        this.global["layer" + deckNumber].registerDefaultContainer(this.deckBasicsContainer);
+        this.global["layer" + deckNumber].registerDefaultContainer(this.library);
+        this.global["layer" + deckNumber].registerLayerContainer(this.deckExtrasContainer[deckMapping.getIndex()]);
     }).bind(this));
 
-    this.global.shiftButton.registerComponent(this.deckBasicsContainer);
+    // Register the containers that support shift functionality.
     this.global.shiftButton.registerComponent(this.library);
+    this.global.shiftButton.registerComponent(this.deckBasicsContainer);
+    this.global.shiftButton.registerComponent(this.deckExtrasContainer);
 };
 
 /**
@@ -187,17 +187,19 @@ AMXFV.shutdown = function () {
  *
  * To place global components not related to mixxx controls, e.g. the shift button and buttons to activate layers.
  */
-AMXFV.Global = function(mapping, deckMappingList) {
+AMXFV.Global = function(mapping) {
 
         this.shiftButton = new AMXFV.ShiftButton({
             midiIn: [[NOTE_ON, mapping.getControl('shift')], [NOTE_OFF, mapping.getControl('shift')]],
         });
 
-        deckMappingList.forEach((function(deckMapping){
-            this[`layerButtonDeck${deckMapping.getGroupNumber()}`] = new AMXFV.LayerButton({
-                midiIn: [[NOTE_ON, deckMapping.getControl('search')], [NOTE_OFF, deckMapping.getControl('search')]],
-            });
-        }).bind(this));
+        this.layer1 = new AMXFV.LayerButton({
+            midiIn: [[NOTE_ON, mapping.getControl('search', leftDeckMapping.getIndex())], [NOTE_OFF, mapping.getControl('search', leftDeckMapping.getIndex())]],
+        });
+
+        this.layer2 = new AMXFV.LayerButton({
+            midiIn: [[NOTE_ON, mapping.getControl('search', rightDeckMapping.getIndex())], [NOTE_OFF, mapping.getControl('search', rightDeckMapping.getIndex())]],
+        });
 
         this.reconnectComponents(function (component) {
             if (component.group === undefined) {
