@@ -475,6 +475,46 @@ AMXFV.DeckExtras = function (channelMapping) {
         inKey: 'beatjump_forward',
     });
 
+    this.loopActivate= new components.Button({
+        midiIn: [NOTE_ON, channelMapping.getControl('sync', leftDeckMapping.getIndex())],
+        inKey: "beatloop_activate",
+    });
+
+    this.reloop = new components.Button({
+        midiIn: [[NOTE_ON, channelMapping.getControl('sync', rightDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('sync', rightDeckMapping.getIndex())]],
+        inKey: "reloop_toggle",
+    });
+
+    this.loopIn= new components.Button({
+        midiIn: [[NOTE_ON, channelMapping.getControl('cue', leftDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('cue', leftDeckMapping.getIndex())]],
+        inKey: "loop_in",
+    });
+
+    this.loopOut = new components.Button({
+        midiIn: [[NOTE_ON, channelMapping.getControl('cue', rightDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('cue', rightDeckMapping.getIndex())]],
+        inKey: "loop_out"
+    });
+
+    this.rateTempDown = new components.Button({
+        midiIn: [[NOTE_ON, channelMapping.getControl('play', leftDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('play', leftDeckMapping.getIndex())]],
+        unshift: function() {
+            this.inKey = "rate_temp_down";
+        },
+        shift: function() {
+            this.inKey = "rate_temp_down_small";
+        }
+    });
+
+    this.rateTempUp = new components.Button({
+        midiIn: [[NOTE_ON, channelMapping.getControl('play', rightDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('play', rightDeckMapping.getIndex())]],
+         unshift: function() {
+            this.inKey = "rate_temp_up";
+        },
+        shift: function() {
+            this.inKey = "rate_temp_up_small";
+        }
+    });
+
     // Connect all components of this deck to the same control group.
     this.reconnectComponents(function (component) {
         if (component.group === undefined) {
