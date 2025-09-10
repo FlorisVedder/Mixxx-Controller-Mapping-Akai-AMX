@@ -11,8 +11,13 @@ AMXFV.midiChannel = 0;
 const NOTE_ON = 0x90 + AMXFV.midiChannel;
 const NOTE_OFF = 0x80 + AMXFV.midiChannel;
 const CONTROL_NUMBER    = 0xB0 + AMXFV.midiChannel;
-const VALUE_ON = 0X7f;
+const VALUE_ON = 0X7F;
 const VALUE_OFF = 0X00;
+const ENCODER_LEFT = 0X7F;
+const ENCODER_RIGHT = 0X01;
+
+let leftDeckMapping = null; // leftDeckIndex
+let rightDeckMapping = null; //
 
 ////////////////////////////////////////////////////////////////////////
 //*                                                                  *//
@@ -23,10 +28,10 @@ const VALUE_OFF = 0X00;
 /**
  * Central object to store and get midi mapping values.
  */
-AMXFV.mapping = function () {
+AMXFV.globalMapping = function () {
 };
 
-AMXFV.mapping.prototype = {
+AMXFV.globalMapping.prototype = {
     layout: {
         'search': [0x02, 0x03],
         'load': [0x04, 0x05],
@@ -50,6 +55,8 @@ AMXFV.mapping.prototype = {
         'cueGain': 0x33,
         'master': 0x32,
         'xfadeREV': 0x3A,
+        'browseTurn': 0x3B,
+        'browseClick': 0x1A,
         'crossFaderLSB': 0x01,
         'crossFaderMSB': 0x21,
     },
@@ -104,7 +111,7 @@ AMXFV.groupMapping = function (index, groupNumber) {
 
 }
 
-AMXFV.groupMapping.prototype = AMXFV.mapping.prototype;
+AMXFV.groupMapping.prototype = AMXFV.globalMapping.prototype;
 
 ////////////////////////////////////////////////////////////////////////
 //*                                                                  *//
@@ -118,13 +125,17 @@ AMXFV.groupMapping.prototype = AMXFV.mapping.prototype;
  * @see https://github.com/mixxxdj/mixxx/wiki/Midi-Scripting#script-file-header
  */
 AMXFV.init = function () {
+    this.globalMapping = new AMXFV.globalMapping();
     this.deckMappingList = [
         new AMXFV.groupMapping(0, 1),
         new AMXFV.groupMapping(1, 2)
     ];
+    leftDeckMapping = this.deckMappingList[0];
+    rightDeckMapping = this.deckMappingList[1];
 
-    this.global = new AMXFV.Global(new AMXFV.mapping(), this.deckMappingList);
-    this.master = new AMXFV.Master(new AMXFV.mapping());
+    this.global = new AMXFV.Global(this.globalMapping, this.deckMappingList);
+    this.library = new AMXFV.Library(this.globalMapping);
+    this.master = new AMXFV.Master(this.globalMapping);
 
     this.mixerLineContainer = new components.ComponentContainer();
     this.deckBasicsContainer = new components.ComponentContainer();
@@ -135,20 +146,22 @@ AMXFV.init = function () {
         this.deckBasicsContainer[deckMapping.getIndex()] = new AMXFV.DeckBasics(deckMapping);
     }).bind(this));
 
-    this.deckExtrasLayer = new components.ComponentContainer();
+    this.deckExtrasContainer = new components.ComponentContainer();
 
     // Build layers and add them to the layer button's that are created in the global component container.
     this.deckMappingList.forEach((function(deckMapping){
         let deckNumber = deckMapping.getGroupNumber();
         // Add the default components to the layer button.
         this.global[`layerButtonDeck${deckNumber}`].registerDefaultContainer(this.deckBasicsContainer);
+        this.global[`layerButtonDeck${deckNumber}`].registerDefaultContainer(this.library);
 
         // Build the parts that can be enabled as layer and add them to the layer button.
-        this.deckExtrasLayer[`deckExtrasLayer${deckNumber}`] = new AMXFV.DeckExtras(deckMapping);
-        this.global[`layerButtonDeck${deckNumber}`].registerLayerContainer(this.deckExtrasLayer[`deckExtrasLayer${deckNumber}`]);
+        this.deckExtrasContainer[`deckExtrasLayer${deckNumber}`] = new AMXFV.DeckExtras(deckMapping);
+        this.global[`layerButtonDeck${deckNumber}`].registerLayerContainer(this.deckExtrasContainer[`deckExtrasLayer${deckNumber}`]);
     }).bind(this));
 
     this.global.shiftButton.registerComponent(this.deckBasicsContainer);
+    this.global.shiftButton.registerComponent(this.library);
 };
 
 /**
@@ -159,7 +172,7 @@ AMXFV.init = function () {
 AMXFV.shutdown = function () {
     this.mixerLineContainer.shutdown();
     this.deckBasicsContainer.shutdown();
-    this.deckExtrasLayer.shutdown();
+    this.deckExtrasContainer.shutdown();
     this.global.shutdown();
 };
 
@@ -194,6 +207,71 @@ AMXFV.Global = function(mapping, deckMappingList) {
 
 };
 AMXFV.Global.prototype = new components.ComponentContainer();
+
+/**
+ * Constructor for the library group controls in mixxx.
+ */
+AMXFV.Library = function(mapping) {
+
+    this.browse = new components.Encoder({
+        midiIn: [CONTROL_NUMBER, mapping.getControl('browseTurn')],
+        input: function (channel, control, value, status, group) {
+            if (value === 1) {
+                this.inSetParameter(1);
+            } else if (value === 127) {
+                this.inSetParameter(- 1);
+            }
+        },
+        unshift: function() {
+            this.inKey = "MoveVertical";
+        },
+        shift: function() {
+            this.inKey = "MoveHorizontal";
+        }
+    });
+
+    this.browseClick = new components.Button({
+        midiIn: [NOTE_ON, mapping.getControl('browseClick')],
+        unshift: function() {
+            this.inKey = "GoToItem";
+        },
+        shift: function() {
+            this.inKey = "sort_focused_column";
+        },
+    });
+
+    this.loadLeft = new components.Button({
+        midiIn: [NOTE_ON, mapping.getControl('load', leftDeckMapping.getIndex())],
+        unshift: function() {
+            this.inKey = "LoadSelectedTrack";
+            this.group = `[Channel${leftDeckMapping.getGroupNumber()}]`;
+        },
+        shift: function() {
+            this.inKey = "MoveFocusBackward";
+            this.group = '[Library]';
+        },
+    });
+
+    this.loadRight = new components.Button({
+        midiIn: [NOTE_ON, mapping.getControl('load', rightDeckMapping.getIndex())],
+        unshift: function() {
+            this.inKey = "LoadSelectedTrack";
+            this.group = `[Channel${rightDeckMapping.getGroupNumber()}]`;
+        },
+        shift: function() {
+            this.inKey = "MoveFocusForward";
+            this.group = '[Library]'
+        },
+    });
+
+    this.reconnectComponents(function (component) {
+        if (component.group === undefined) {
+            component.group = "[Library]";
+        }
+    });
+
+};
+AMXFV.Library.prototype = new components.ComponentContainer();
 
 /**
  * Constructor for the master group controls in mixxx.
@@ -322,9 +400,9 @@ AMXFV.DeckBasics = function (channelMapping) {
         midiIn: [CONTROL_NUMBER, channelMapping.getControl('gain')],
         parameterStep: .02,
         input: function (channel, control, value, status, group) {
-            if (value === 1) {
+            if (value === ENCODER_RIGHT) {
                 this.inSetParameter(this.inGetParameter() + this.parameterStep);
-            } else if (value === 127) {
+            } else if (value === ENCODER_LEFT) {
                 this.inSetParameter(this.inGetParameter() - this.parameterStep);
             }
         },
@@ -382,18 +460,16 @@ AMXFV.DeckBasics.prototype = new components.Deck([]);
  */
 AMXFV.DeckExtras = function (channelMapping) {
     components.Deck.call(this, channelMapping.getGroupNumber());
-    let leftDeckIndex = 0; // leftDeckIndex
-    let rightDeckIndex = 1; // rightDeckIndex
 
     this.jumpBackButton = new components.Button({
-        midiIn: [[NOTE_ON, channelMapping.getControl('load', leftDeckIndex)], [NOTE_OFF, channelMapping.getControl('load', leftDeckIndex)]],
-        midiOut: [NOTE_ON, channelMapping.getControl('load', leftDeckIndex)],
+        midiIn: [[NOTE_ON, channelMapping.getControl('load', leftDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('load', leftDeckMapping.getIndex())]],
+        midiOut: [NOTE_ON, channelMapping.getControl('load', leftDeckMapping.getIndex())],
         inKey: 'beatjump_backward',
     });
 
     this.jumpFowardButton = new components.Button({
-        midiIn: [[NOTE_ON, channelMapping.getControl('load', rightDeckIndex)], [NOTE_OFF, channelMapping.getControl('load', rightDeckIndex)]],
-        midiOut: [NOTE_ON, channelMapping.getControl('load', rightDeckIndex)],
+        midiIn: [[NOTE_ON, channelMapping.getControl('load', rightDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('load', rightDeckMapping.getIndex())]],
+        midiOut: [NOTE_ON, channelMapping.getControl('load', rightDeckMapping.getIndex())],
         inKey: 'beatjump_forward',
     });
 
