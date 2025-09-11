@@ -146,7 +146,7 @@ AMXFV.init = function () {
         let index = deckMapping.getIndex();
         this.mixerLineContainer[index] = new AMXFV.MixerLine(deckMapping);
         this.deckBasicsContainer[index] = new AMXFV.DeckBasics(deckMapping);
-        this.deckExtrasContainer[index] = new AMXFV.DeckExtras(deckMapping);
+        this.deckExtrasContainer[index] = new AMXFV.DeckExtras(deckMapping, this.globalMapping);
     }).bind(this));
 
     // Add the layers to the given layer button.
@@ -459,9 +459,40 @@ AMXFV.DeckBasics.prototype = new components.Deck([]);
  *
  * @param {AMXFV.groupMapping} channelMapping
  *   Instance of group mapping object.
+ * @param {AMXFV.globalMapping} mapping
+ *   The global mapping object to fetch mapping for controls that are not related to a deck.
  */
-AMXFV.DeckExtras = function (channelMapping) {
+AMXFV.DeckExtras = function (channelMapping, mapping) {
     components.Deck.call(this, channelMapping.getGroupNumber());
+
+    this.playPosition = new components.Encoder({
+        midiIn: [CONTROL_NUMBER, mapping.getControl('browseTurn')],
+        inKey: "playposition",
+        input: function (channel, control, value, status, group) {
+            if (value === ENCODER_RIGHT) {
+                this.inSetParameter(this.inGetParameter() + this.parameterStep);
+            } else if (value === ENCODER_LEFT) {
+                this.inSetParameter(this.inGetParameter() - this.parameterStep);
+            }
+        },
+        unshift: function() {
+            this.parameterStep = 0.007
+        },
+        shift: function() {
+            this.parameterStep = 0.0002
+        },
+    });
+
+    this.quantize = new components.Button({
+        midiIn: [NOTE_ON, mapping.getControl('browseClick')],
+        type: components.Button.prototype.types.toggle,
+        unshift: function() {
+            this.inKey = "quantize";
+        },
+        shift: function() {
+            this.inKey = "keylock";
+        },
+    });
 
     this.beatloopSize = new components.Encoder({
         midiIn: [CONTROL_NUMBER, channelMapping.getControl('gain', leftDeckMapping.getIndex())],

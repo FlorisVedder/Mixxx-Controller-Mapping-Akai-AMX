@@ -538,7 +538,6 @@
     Pot.prototype = new Component({
         softTakeover: true,
         input: function(channel, control, value, _status, _group) {
-            print('infader');
             if (this.MSB !== undefined) {
                 value = (this.MSB << 7) + value;
             }
