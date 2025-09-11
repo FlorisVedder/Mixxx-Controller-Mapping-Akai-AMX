@@ -463,6 +463,30 @@ AMXFV.DeckBasics.prototype = new components.Deck([]);
 AMXFV.DeckExtras = function (channelMapping) {
     components.Deck.call(this, channelMapping.getGroupNumber());
 
+    this.beatloopSize = new components.Encoder({
+        midiIn: [CONTROL_NUMBER, channelMapping.getControl('gain', leftDeckMapping.getIndex())],
+        input: function (channel, control, value, status, group) {
+            if (value === ENCODER_RIGHT) {
+                this.inSetParameter(this.inGetParameter() * 2);
+            } else if (value === ENCODER_LEFT) {
+                this.inSetParameter(this.inGetParameter() / 2);
+            }
+        },
+        inKey: "beatloop_size",
+    });
+
+    this.beatjumpSize = new components.Encoder({
+        midiIn: [CONTROL_NUMBER, channelMapping.getControl('gain', rightDeckMapping.getIndex())],
+        input: function (channel, control, value, status, group) {
+            if (value === ENCODER_RIGHT) {
+                this.inSetParameter(this.inGetParameter() * 2);
+            } else if (value === ENCODER_LEFT) {
+                this.inSetParameter(this.inGetParameter() / 2);
+            }
+        },
+        inKey: "beatjump_size",
+    });
+
     this.jumpBackButton = new components.Button({
         midiIn: [[NOTE_ON, channelMapping.getControl('load', leftDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('load', leftDeckMapping.getIndex())]],
         midiOut: [NOTE_ON, channelMapping.getControl('load', leftDeckMapping.getIndex())],
