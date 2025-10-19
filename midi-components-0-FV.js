@@ -42,21 +42,15 @@
      * @param {ComponentOptions | [number, number]} options Component configuration
      * @class
      */
-    const Component = function(options) {
-        if (typeof options === "undefined") {
-            print('component options undefined');
-            // print('this: ' + this.constructor.);
-            return;
-        }
-
+    const Component = function(options = {}) {
         this.normalizeMidi = (midiBytesVar) => {
             if (!Array.isArray(midiBytesVar)) {
                 return [];
             }
 
-            const [first, second] = midiBytesVar;
+            const isArrayOfArrays = midiBytesVar.every(Array.isArray);
 
-            if (Array.isArray(first) && Array.isArray(second)) { // long form
+            if (isArrayOfArrays) {
                 return midiBytesVar;
             } else {
                 return [midiBytesVar];
@@ -84,7 +78,7 @@
         this.isShifted = false;
         this.connections = [];
 
-        if (options !== undefined && typeof options.key === "string") {
+        if (typeof options.key === "string") {
             this.inKey = options.key;
             this.outKey = options.key;
         }
@@ -194,7 +188,7 @@
                 this.inputHandlers.push(midi.makeInputHandler(midiStatus, midino, this.input.bind(this)));
             }
         },
-        connect: function() {
+        connect() {
             this.connectMidiIn();
             this.connectMidiOut();
         },
@@ -228,6 +222,7 @@
             }
 
             if (this.sendShifted) {
+                console.assert(this.midiOut.length === 1, "use nested `midiOut: [[...], [...], ...]` instead of `sendShifted`!");
                 if (this.shiftChannel) {
                     midi.sendShortMsg(this.midiOut[0][0] + this.shiftOffset, this.midiOut[0][1], value);
                 } else if (this.shiftControl) {
@@ -586,8 +581,9 @@
                 this.inputHandlers.push(midi.makeInputHandler(midiStatus, midino, this.inputLSB.bind(this)));
             }
         },
-        connect: function() {
+        connect() {
             this.connectMidiIn();
+            this.connectMidiOut();
             if (this.firstValueReceived && !this.relative && this.softTakeover) {
                 engine.softTakeover(this.group, this.inKey, true);
             }
@@ -1365,7 +1361,7 @@
             this.effectFocusButton.trigger();
 
             this.enableOnChannelButtons.forEachComponent(function(button) {
-                if (button.midiOut !== undefined) {
+                if (button.midiOut.length > 0) {
                     button.disconnect();
                     button.connect();
                     button.trigger();
