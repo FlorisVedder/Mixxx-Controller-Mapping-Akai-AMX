@@ -33,6 +33,7 @@ AMXFV.globalMapping = function () {
 
 AMXFV.globalMapping.prototype = {
     layout: {
+        'panel': 0x01,
         'search': [0x02, 0x03],
         'load': [0x04, 0x05],
         'shift': 0x00,
@@ -133,35 +134,41 @@ AMXFV.init = function () {
     leftDeckMapping = this.deckMappingList[0];
     rightDeckMapping = this.deckMappingList[1];
 
-    // Create containers with general mapping.
     this.global = new AMXFV.Global(this.globalMapping);
     this.library = new AMXFV.Library(this.globalMapping);
     this.master = new AMXFV.Master(this.globalMapping);
 
-    // Create containers with per deck mapping.
-    this.mixerLineContainer = new components.ComponentContainer();
-    this.deckBasicsContainer = new components.ComponentContainer();
-    this.deckExtrasContainer = new components.ComponentContainer();
-    this.deckMappingList.forEach((function(deckMapping){
-        let index = deckMapping.getIndex();
-        this.mixerLineContainer[index] = new AMXFV.MixerLine(deckMapping);
-        this.deckBasicsContainer[index] = new AMXFV.DeckBasics(deckMapping);
-        this.deckExtrasContainer[index] = new AMXFV.DeckExtras(deckMapping, this.globalMapping);
-    }).bind(this));
+    // The mixer controls: fader, filter and eq.
+    this.mixerLine = new components.ComponentContainer();
+    this.mixerLine.Left = new AMXFV.MixerLine(leftDeckMapping);
+    this.mixerLine.Right = new AMXFV.MixerLine(rightDeckMapping);
 
-    // Add the layers to the given layer button.
-    // On the controller the buttons with the text 'search' above and the number on the button.
-    this.deckMappingList.forEach((function(deckMapping){
-        let deckNumber = deckMapping.getGroupNumber();
-        this.global["layer" + deckNumber].registerDefaultContainer(this.deckBasicsContainer);
-        this.global["layer" + deckNumber].registerDefaultContainer(this.library);
-        this.global["layer" + deckNumber].registerLayerContainer(this.deckExtrasContainer[deckMapping.getIndex()]);
-    }).bind(this));
+    // The basics: play, que, sync and load.
+    this.deckBasics = new components.ComponentContainer();
+    this.deckBasics.Left = new AMXFV.DeckBasics(leftDeckMapping);
+    this.deckBasics.Right = new AMXFV.DeckBasics(rightDeckMapping);
+
+    // Deck Extras: pitch bend (rate), loop, beatjump and playposition.
+    this.deckExtras = new components.ComponentContainer();
+    this.deckExtras.Left = new AMXFV.DeckExtras(leftDeckMapping, this.globalMapping);
+    this.deckExtras.Right = new AMXFV.DeckExtras(rightDeckMapping, this.globalMapping);
+
+
+    // Add default layers to the layer buttons.
+    let defaultLayer = [];
+    defaultLayer.push(this.deckBasics);
+    defaultLayer.push(this.library);
+    this.global.layer1.addDefaultLayer(defaultLayer);
+    this.global.layer2.addDefaultLayer(defaultLayer);
+
+    // Add the selection layers to the layer buttons
+    this.global.layer1.addSwitchLayerContainer(this.deckExtras.Left);
+    this.global.layer2.addSwitchLayerContainer(this.deckExtras.Right);
 
     // Register the containers that support shift functionality.
     this.global.shiftButton.registerComponent(this.library);
-    this.global.shiftButton.registerComponent(this.deckBasicsContainer);
-    this.global.shiftButton.registerComponent(this.deckExtrasContainer);
+    this.global.shiftButton.registerComponent(this.deckBasics);
+    this.global.shiftButton.registerComponent(this.deckExtras);
 };
 
 /**
@@ -170,9 +177,9 @@ AMXFV.init = function () {
  * @see https://github.com/mixxxdj/mixxx/wiki/Midi-Scripting#script-file-header
  */
 AMXFV.shutdown = function () {
-    this.mixerLineContainer.shutdown();
-    this.deckBasicsContainer.shutdown();
-    this.deckExtrasContainer.shutdown();
+    this.mixerLine.shutdown();
+    this.deckBasics.shutdown();
+    this.deckExtras.shutdown();
     this.global.shutdown();
 };
 
@@ -332,7 +339,6 @@ AMXFV.MixerLine = function (channelMapping) {
         midiIn: [[CONTROL_NUMBER, channelMapping.getControl('filterLSB')], [CONTROL_NUMBER, channelMapping.getControl('filterMSB')]],
         inKey: `super1`,
         group: `[QuickEffectRack1_[Channel${channelMapping.getGroupNumber()}]]`
-        // group: "[QuickEffectRack1_[Channel1]]",
     });
 
     this.lineFader = new components.Pot({
@@ -656,28 +662,34 @@ AMXFV.LayerButton = (function () {
         components.Button.call(this, options)
 
         this.defaultLayer = [];
-        this.layer = [];
+        this.switchLayer = [];
 
-        this.registerDefaultContainer = (function (component) {
+        this.addDefaultLayer = (function (defaultLayer){
+            for (container of defaultLayer) {
+                this.addDefaultLayerContainer(container);
+            }
+        }).bind(this);
+
+        this.addDefaultLayerContainer = (function (component) {
             if (component instanceof components.ComponentContainer) {
                 this.defaultLayer.push(component);
             }
         }).bind(this);
 
-        this.registerLayerContainer = (function (component) {
+        this.addSwitchLayerContainer = (function (component) {
             if (component instanceof components.ComponentContainer) {
-                this.layer.push(component);
+                this.switchLayer.push(component);
             }
-            disconnectLayer(this.layer);
+            disconnectLayer(this.switchLayer);
         }).bind(this);
 
 
         this.input = function (channel, control, value, status, group) {
             if (value === VALUE_ON) {
                 disconnectLayer(this.defaultLayer);
-                connectLayer(this.layer);
+                connectLayer(this.switchLayer);
             } else if (value === VALUE_OFF) {
-                disconnectLayer(this.layer);
+                disconnectLayer(this.switchLayer);
                 connectLayer(this.defaultLayer);
             }
         };
