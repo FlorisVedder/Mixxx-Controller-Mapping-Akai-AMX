@@ -42,7 +42,11 @@
      * @param {ComponentOptions | [number, number]} options Component configuration
      * @class
      */
-    const Component = function(options = {}) {
+    const Component = function(options) {
+        if (typeof options === "undefined") {
+            return;
+        }
+
         this.normalizeMidi = (midiBytesVar) => {
             if (!Array.isArray(midiBytesVar)) {
                 return [];
