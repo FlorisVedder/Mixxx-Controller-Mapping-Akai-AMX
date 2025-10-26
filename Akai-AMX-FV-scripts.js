@@ -425,7 +425,7 @@ AMXFV.DeckBasics = function (channelMapping) {
     });
 
     this.syncButton = new components.SyncButton({
-        midiIn: [NOTE_ON, channelMapping.getControl('sync')],
+        midiIn: [[NOTE_ON, channelMapping.getControl('sync')], [NOTE_OFF, channelMapping.getControl('sync')]],
         midiOut: [NOTE_ON, channelMapping.getControl('sync')],
     });
 
@@ -435,7 +435,7 @@ AMXFV.DeckBasics = function (channelMapping) {
     });
 
     this.playButton = new components.PlayButton({
-        midiIn: [NOTE_ON, channelMapping.getControl('play')],
+        midiIn: [[NOTE_ON, channelMapping.getControl('play')], [NOTE_OFF, channelMapping.getControl('play')]],
         midiOut: [NOTE_ON, channelMapping.getControl('play')]
     });
 
@@ -490,7 +490,7 @@ AMXFV.DeckExtras = function (channelMapping, mapping) {
     });
 
     this.quantize = new components.Button({
-        midiIn: [NOTE_ON, mapping.getControl('browseClick')],
+        midiIn: [[NOTE_ON, mapping.getControl('browseClick')], [NOTE_OFF, mapping.getControl('browseClick')]],
         type: components.Button.prototype.types.toggle,
         unshift: function() {
             this.inKey = "quantize";
@@ -526,18 +526,16 @@ AMXFV.DeckExtras = function (channelMapping, mapping) {
 
     this.jumpBackButton = new components.Button({
         midiIn: [[NOTE_ON, channelMapping.getControl('load', leftDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('load', leftDeckMapping.getIndex())]],
-        midiOut: [NOTE_ON, channelMapping.getControl('load', leftDeckMapping.getIndex())],
         inKey: 'beatjump_backward',
     });
 
     this.jumpFowardButton = new components.Button({
         midiIn: [[NOTE_ON, channelMapping.getControl('load', rightDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('load', rightDeckMapping.getIndex())]],
-        midiOut: [NOTE_ON, channelMapping.getControl('load', rightDeckMapping.getIndex())],
         inKey: 'beatjump_forward',
     });
 
     this.loopActivate= new components.Button({
-        midiIn: [NOTE_ON, channelMapping.getControl('sync', leftDeckMapping.getIndex())],
+        midiIn: [[NOTE_ON, channelMapping.getControl('sync', leftDeckMapping.getIndex())], [NOTE_OFF, channelMapping.getControl('sync', leftDeckMapping.getIndex())]],
         inKey: "beatloop_activate",
     });
 

@@ -10,5 +10,7 @@
             <file filename="midi-components-0-FV.js" />
             <file filename="Akai-AMX-FV-scripts.js" functionprefix="AMXFV" />
         </scriptfiles>
+        <controls/>
+        <outputs/>
     </controller>
 </MixxxControllerPreset>
