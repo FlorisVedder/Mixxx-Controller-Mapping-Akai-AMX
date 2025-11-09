@@ -308,7 +308,6 @@ AMXFV.Master = function(mapping) {
     this.crossFaderReverseButton = new components.Button({
         midiIn: [CONTROL_NUMBER, mapping.getControl('xfadeREV')],
         input: function (channel, control, value, status, group) {
-            print('value: ' + value);
             if (value === SWITCH_ON) {
                 crossFaderReverse = true;
             } else if (value === VALUE_OFF) {
