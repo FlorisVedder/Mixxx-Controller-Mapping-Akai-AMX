@@ -309,8 +309,10 @@ AMXFV.Master = function(mapping) {
         midiIn: [CONTROL_NUMBER, mapping.getControl('xfadeREV')],
         input: function (channel, control, value, status, group) {
             if (value === SWITCH_ON) {
+                engine.setValue(this.group, 'crossfader', -1 * engine.getValue(this.group, 'crossfader'))
                 crossFaderReverse = true;
             } else if (value === VALUE_OFF) {
+                engine.setValue(this.group, 'crossfader', -1 * engine.getValue(this.group, 'crossfader'))
                 crossFaderReverse = false;
             }
         },
