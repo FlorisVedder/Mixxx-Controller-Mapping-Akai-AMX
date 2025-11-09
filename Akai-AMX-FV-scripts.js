@@ -11,6 +11,7 @@ AMXFV.midiChannel = 0;
 const NOTE_ON = 0x90 + AMXFV.midiChannel;
 const NOTE_OFF = 0x80 + AMXFV.midiChannel;
 const CONTROL_NUMBER    = 0xB0 + AMXFV.midiChannel;
+const SWITCH_ON = 0x01;
 const VALUE_ON = 0X7F;
 const VALUE_OFF = 0X00;
 const ENCODER_LEFT = 0X7F;
@@ -302,11 +303,35 @@ AMXFV.Master = function(mapping) {
         inKey: `gain`
     });
 
-    // @TODO: support xfade rev (crossfader reverse or hamster style) button from the controller.
+    let crossFaderReverse = false;
+
+    this.crossFaderReverseButton = new components.Button({
+        midiIn: [CONTROL_NUMBER, mapping.getControl('xfadeREV')],
+        input: function (channel, control, value, status, group) {
+            print('value: ' + value);
+            if (value === SWITCH_ON) {
+                crossFaderReverse = true;
+            } else if (value === VALUE_OFF) {
+                crossFaderReverse = false;
+            }
+        },
+    });
 
     this.crossFader = new components.Pot({
         midiIn: [[CONTROL_NUMBER, mapping.getControl('crossFaderLSB')], [CONTROL_NUMBER, mapping.getControl('crossFaderMSB')]],
-        inKey: 'crossfader'
+        inKey: 'crossfader',
+        inputMSB: function(channel, control, value, status, group) {
+            if (crossFaderReverse === true) {
+                value = 127 - value;
+            }
+            components.Pot.prototype.inputMSB.call(this, channel, control, value, status, group);
+        },
+        inputLSB: function(channel, control, value, status, group) {
+            if (crossFaderReverse === true) {
+                value = 127 - value;
+            }
+            components.Pot.prototype.inputLSB.call(this, channel, control, value, status, group);
+        },
     });
 
     this.reconnectComponents(function (component) {
