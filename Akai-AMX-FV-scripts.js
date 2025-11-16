@@ -29,10 +29,10 @@ let rightDeckMapping = null; //
 /**
  * Central object to store and get midi mapping values.
  */
-AMXFV.globalMapping = function () {
+AMXFV.GlobalMapping = function () {
 };
 
-AMXFV.globalMapping.prototype = {
+AMXFV.GlobalMapping.prototype = {
     layout: {
         'panel': 0x01,
         'search': [0x02, 0x03],
@@ -61,6 +61,9 @@ AMXFV.globalMapping.prototype = {
         'browseClick': 0x1A,
         'crossFaderLSB': 0x01,
         'crossFaderMSB': 0x21,
+        'vuMeter': [0x40, 0x41],
+        'vuMeterMasterL': 0x3E,
+        'vuMeterMasterR': 0x3F,
     },
 
     getControl: function(controlName, layoutIndex) {
@@ -113,7 +116,7 @@ AMXFV.groupMapping = function (index, groupNumber) {
 
 }
 
-AMXFV.groupMapping.prototype = AMXFV.globalMapping.prototype;
+AMXFV.groupMapping.prototype = AMXFV.GlobalMapping.prototype;
 
 ////////////////////////////////////////////////////////////////////////
 //*                                                                  *//
@@ -127,7 +130,7 @@ AMXFV.groupMapping.prototype = AMXFV.globalMapping.prototype;
  * @see https://github.com/mixxxdj/mixxx/wiki/Midi-Scripting#script-file-header
  */
 AMXFV.init = function () {
-    this.globalMapping = new AMXFV.globalMapping();
+    this.globalMapping = new AMXFV.GlobalMapping();
     this.deckMappingList = [
         new AMXFV.groupMapping(0, 1),
         new AMXFV.groupMapping(1, 2)
@@ -170,6 +173,12 @@ AMXFV.init = function () {
     this.global.shiftButton.registerComponent(this.library);
     this.global.shiftButton.registerComponent(this.deckBasics);
     this.global.shiftButton.registerComponent(this.deckExtras);
+
+    // Vu meter connections
+    engine.makeUnbufferedConnection("[Channel1]", "vu_meter", AMXFV.vuMeterUpdateLine);
+    engine.makeUnbufferedConnection("[Channel2]", "vu_meter", AMXFV.vuMeterUpdateLine);
+    engine.makeUnbufferedConnection("[Main]", "vu_meter_left", AMXFV.vuMeterUpdateMaster);
+    engine.makeUnbufferedConnection("[Main]", "vu_meter_right", AMXFV.vuMeterUpdateMaster);
 };
 
 /**
@@ -182,6 +191,11 @@ AMXFV.shutdown = function () {
     this.deckBasics.shutdown();
     this.deckExtras.shutdown();
     this.global.shutdown();
+
+    AMXFV.vuMeterUpdate(CONTROL_NUMBER, AMXFV.deckMappingList[0].getControl('vuMeter'), 0)
+    AMXFV.vuMeterUpdate(CONTROL_NUMBER, AMXFV.deckMappingList[1].getControl('vuMeter'), 0)
+    AMXFV.vuMeterUpdate(CONTROL_NUMBER, AMXFV.globalMapping.getControl('vuMeterMasterL'), 0)
+    AMXFV.vuMeterUpdate(CONTROL_NUMBER, AMXFV.globalMapping.getControl('vuMeterMasterR'), 0)
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -749,3 +763,60 @@ AMXFV.LayerButton = (function () {
     LayerButton.prototype = Object.create(components.Button.prototype);
     return LayerButton;
 }());
+
+////////////////////////////////////////////////////////////////////////
+//*                                                                  *//
+//*     Output methods for unbuffered use (without JS components)    *//
+//*                                                                  *//
+////////////////////////////////////////////////////////////////////////
+
+AMXFV.vuMeterUpdateLine = function(value, group, control) {
+    let channelMapping = AMXFV.getMappingForGroup(group);
+    AMXFV.vuMeterUpdate(CONTROL_NUMBER, channelMapping.getControl('vuMeter'), value)
+};
+
+AMXFV.vuMeterUpdateMaster = function(value, group, control) {
+    let globalMapping = AMXFV.getMappingForGroup(group);
+    if (control === 'vu_meter_left') {
+        AMXFV.vuMeterUpdate(CONTROL_NUMBER, globalMapping.getControl('vuMeterMasterL'), value);
+    }
+    if (control === 'vu_meter_right') {
+        AMXFV.vuMeterUpdate(CONTROL_NUMBER, globalMapping.getControl('vuMeterMasterR'), value)
+    }
+};
+
+AMXFV.vuMeterUpdate = function(statusByte, controlNumber, value) {
+    let factor = 4.10;
+
+    if (value > 0.99) {
+        factor = 4.33;
+    }
+
+    midi.sendShortMsg(statusByte, controlNumber, value * factor ** 3);
+};
+
+////////////////////////////////////////////////////////////////////////
+//*                                                                  *//
+//*                      Helper functions                            *//
+//*                                                                  *//
+////////////////////////////////////////////////////////////////////////
+
+AMXFV.getMappingForGroup = function(groupName){
+    // @TODO for now a helper function.
+    //   Would be nice to refactor all the mapping objects to a factory.
+    //   And then that factory should provide different methods, for fetching
+    //   the mapping, for instance by grupName.
+
+    if(groupName === '[Channel1]') {
+        return this.deckMappingList[0];
+    }
+
+    if(groupName === '[Channel2]') {
+        return this.deckMappingList[1];
+    }
+
+    if(groupName === '[Main]') {
+        return this.globalMapping;
+    }
+
+}
