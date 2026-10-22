@@ -43,24 +43,24 @@ AMXFV.GlobalMapping.prototype = {
         'play': [0x0A, 0x0B],
         'pfl': [0x0C, 0x0D],
         'gain': [0x3C, 0x3D],
-        'eqTrebleLSB': [0x0A, 0x0E],
-        'eqTrebleMSB': [0x2A, 0x2E],
-        'eqMidLSB': [0x09, 0x0D],
-        'eqMidMSB': [0x29, 0x2D],
-        'eqBassLSB': [0x08, 0x0C],
-        'eqBassMSB': [0x28, 0x2C],
-        'filterLSB': [0x0F, 0x10],
-        'filterMSB': [0x2F, 0x30],
-        'lineFaderLSB': [0x07, 0x0B],
-        'lineFaderMSB': [0x27, 0x2B],
+        'eqTrebleMSB': [0x0A, 0x0E],
+        'eqTrebleLSB': [0x2A, 0x2E],
+        'eqMidMSB': [0x09, 0x0D],
+        'eqMidLSB': [0x29, 0x2D],
+        'eqBassMSB': [0x08, 0x0C],
+        'eqBassLSB': [0x28, 0x2C],
+        'filterMSB': [0x0F, 0x10],
+        'filterLSB': [0x2F, 0x30],
+        'lineFaderMSB': [0x07, 0x0B],
+        'lineFaderLSB': [0x27, 0x2B],
         'cueMix': 0x37,
         'cueGain': 0x33,
         'master': 0x32,
         'xfadeREV': 0x3A,
         'browseTurn': 0x3B,
         'browseClick': 0x1A,
-        'crossFaderLSB': 0x01,
-        'crossFaderMSB': 0x21,
+        'crossFaderMSB': 0x01,
+        'crossFaderLSB': 0x21,
         'vuMeter': [0x40, 0x41],
         'vuMeterMasterL': 0x3E,
         'vuMeterMasterR': 0x3F,
@@ -333,7 +333,7 @@ AMXFV.Master = function(mapping) {
     });
 
     this.crossFader = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, mapping.getControl('crossFaderLSB')], [CONTROL_NUMBER, mapping.getControl('crossFaderMSB')]],
+        midiIn: {'lsb': [CONTROL_NUMBER, mapping.getControl('crossFaderLSB')], 'msb': [CONTROL_NUMBER, mapping.getControl('crossFaderMSB')]},
         inKey: 'crossfader',
         inputMSB: function(channel, control, value, status, group) {
             if (crossFaderReverse === true) {
@@ -376,13 +376,13 @@ AMXFV.MixerLine = function (channelMapping) {
     this.equalizerRack = new AMXFV.EqualizerRack(channelMapping, 1);
 
     this.filter = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, channelMapping.getControl('filterLSB')], [CONTROL_NUMBER, channelMapping.getControl('filterMSB')]],
+        midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('filterLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('filterMSB')]},
         inKey: `super1`,
         group: `[QuickEffectRack1_[Channel${channelMapping.getGroupNumber()}]]`
     });
 
     this.lineFader = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, channelMapping.getControl('lineFaderLSB')], [CONTROL_NUMBER, channelMapping.getControl('lineFaderMSB')]],
+        midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('lineFaderLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('lineFaderMSB')]},
         inKey: 'volume'
     });
 
@@ -407,17 +407,17 @@ AMXFV.EqualizerRack = function(channelMapping, rackNumber) {
     // @TODO provide support for touch control
 
     this.filterHigh = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, channelMapping.getControl('eqTrebleLSB')], [CONTROL_NUMBER, channelMapping.getControl('eqTrebleMSB')]],
+        midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('eqTrebleLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('eqTrebleMSB')]},
         inKey: `parameter3`
     });
 
     this.filterMid = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, channelMapping.getControl('eqMidLSB')], [CONTROL_NUMBER, channelMapping.getControl('eqMidMSB')]],
+        midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('eqMidLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('eqMidMSB')]},
         inKey: 'parameter2'
     });
 
     this.filterLow = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, channelMapping.getControl('eqBassLSB')], [CONTROL_NUMBER, channelMapping.getControl('eqBassMSB')]],
+        midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('eqBassLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('eqBassMSB')]},
         inKey: 'parameter1'
     });
 
