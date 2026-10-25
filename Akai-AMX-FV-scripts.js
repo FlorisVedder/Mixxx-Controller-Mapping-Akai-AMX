@@ -56,7 +56,7 @@ AMXFV.GlobalMapping.prototype = {
         'cueMix': 0x37,
         'cueGain': 0x33,
         'master': 0x32,
-        'xfadeREV': 0x3A,
+        'xfadeRevSwitch': 0x3A,
         'browseTurn': 0x3B,
         'browseClick': 0x1A,
         'crossFaderMSB': 0x01,
@@ -320,7 +320,7 @@ AMXFV.Master = function(mapping) {
     let crossFaderReverse = false;
 
     this.crossFaderReverseButton = new components.Button({
-        midiIn: [CONTROL_NUMBER, mapping.getControl('xfadeREV')],
+        midiIn: [CONTROL_NUMBER, mapping.getControl('xfadeRevSwitch')],
         input: function (channel, control, value, status, group) {
             if (value === SWITCH_ON) {
                 engine.setValue(this.group, 'crossfader', -1 * engine.getValue(this.group, 'crossfader'))
@@ -406,17 +406,17 @@ AMXFV.MixerLine.prototype = new components.Deck([]);
 AMXFV.EqualizerRack = function(channelMapping, rackNumber) {
     // @TODO provide support for touch control
 
-    this.filterHigh = new components.Pot({
+    this.eqTreble = new components.Pot({
         midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('eqTrebleLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('eqTrebleMSB')]},
         inKey: `parameter3`
     });
 
-    this.filterMid = new components.Pot({
+    this.eqMid = new components.Pot({
         midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('eqMidLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('eqMidMSB')]},
         inKey: 'parameter2'
     });
 
-    this.filterLow = new components.Pot({
+    this.eqBass = new components.Pot({
         midiIn: {'lsb': [CONTROL_NUMBER, channelMapping.getControl('eqBassLSB')], 'msb': [CONTROL_NUMBER, channelMapping.getControl('eqBassMSB')]},
         inKey: 'parameter1'
     });
@@ -805,7 +805,7 @@ AMXFV.getMappingForGroup = function(groupName){
     // @TODO for now a helper function.
     //   Would be nice to refactor all the mapping objects to a factory.
     //   And then that factory should provide different methods, for fetching
-    //   the mapping, for instance by grupName.
+    //   the mapping, for instance by groupName.
 
     if(groupName === '[Channel1]') {
         return this.deckMappingList[0];
