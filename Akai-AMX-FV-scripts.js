@@ -303,17 +303,17 @@ AMXFV.Library.prototype = new components.ComponentContainer();
 AMXFV.Master = function(mapping) {
 
     this.cueMix = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, mapping.getControl('cueMix')], [CONTROL_NUMBER, mapping.getControl('cueMix')]],
+        midiIn: [CONTROL_NUMBER, mapping.getControl('cueMix')],
         inKey: `headMix`
     });
 
     this.cueGain = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, mapping.getControl('cueGain')], [CONTROL_NUMBER, mapping.getControl('cueGain')]],
+        midiIn: [CONTROL_NUMBER, mapping.getControl('cueGain')],
         inKey: `headGain`
     });
 
     this.masterGain = new components.Pot({
-        midiIn: [[CONTROL_NUMBER, mapping.getControl('master')], [CONTROL_NUMBER, mapping.getControl('master')]],
+        midiIn: [CONTROL_NUMBER, mapping.getControl('master')],
         inKey: `gain`
     });
 
