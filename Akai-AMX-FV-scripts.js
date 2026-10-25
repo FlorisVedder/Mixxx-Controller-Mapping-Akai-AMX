@@ -41,7 +41,7 @@ AMXFV.GlobalMapping.prototype = {
         'sync': [0x06, 0x07],
         'cue': [0x08, 0x09],
         'play': [0x0A, 0x0B],
-        'pfl': [0x0C, 0x0D],
+        'pflPressOnly': [0x0C, 0x0D],
         'gain': [0x3C, 0x3D],
         'eqTrebleMSB': [0x0A, 0x0E],
         'eqTrebleLSB': [0x2A, 0x2E],
@@ -479,14 +479,14 @@ AMXFV.DeckBasics = function (channelMapping) {
         midiOut: [NOTE_ON, channelMapping.getControl('play')]
     });
 
-    this.pflOn = new components.Button({
-        midiIn: [NOTE_ON, channelMapping.getControl('pfl')],
+    this.pflButton = new components.Button({
+        midiIn: {
+            on:  [NOTE_ON, channelMapping.getControl('pflPressOnly')],
+            off: [NOTE_OFF, channelMapping.getControl('pflPressOnly')],
+        },
         inKey: 'pfl',
-    });
-
-    this.pflOff = new components.Button({
-        midiIn: [NOTE_OFF, channelMapping.getControl('pfl')],
-        inKey: 'pfl',
+        inputOn:  function() { this.inSetValue(true); },
+        inputOff: function() { this.inSetValue(false); },
     });
 
     // Connect all components of this deck to the same control group.
