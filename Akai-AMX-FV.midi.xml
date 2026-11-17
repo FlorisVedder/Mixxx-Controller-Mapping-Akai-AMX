@@ -7,7 +7,7 @@
     </info>
     <controller id="AMXFV">
         <scriptfiles>
-            <file filename="midi-components-0-FV.js" />
+            <file filename="midi-components-0-inout.js" />
             <file filename="Akai-AMX-FV-scripts.js" functionprefix="AMXFV" />
         </scriptfiles>
         <controls/>
