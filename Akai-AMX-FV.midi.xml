@@ -3,7 +3,7 @@
     <info>
         <name>Akai AMX (FV)</name>
         <author>Floris Vedder</author>
-        <description>AMX mapping based on ComponentsJS with midiIn and midiOut mapping. Without control configuration in the xml.</description>
+        <description>AMX mapping based on ComponentsJS with midiIn and midiOut mapping. Without control configuration in the XML.</description>
     </info>
     <controller id="AMXFV">
         <scriptfiles>
